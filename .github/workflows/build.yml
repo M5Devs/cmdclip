@@ -1,0 +1,419 @@
+name: Build & Package cmdclip
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g. 1.0.0)"
+        required: true
+        default: "1.0.0"
+      targets:
+        description: "Targets to build (comma-separated: whl,deb,rpm,zip,installer)"
+        required: false
+        default: "whl,deb,rpm,zip,installer"
+
+jobs:
+  # ─────────────────────────────────────────────
+  # 1. Python wheel + sdist (.whl + .tar.gz)
+  # ─────────────────────────────────────────────
+  build-python:
+    name: 🐍 Build wheel + sdist
+    runs-on: ubuntu-latest
+    outputs:
+      whl_name: ${{ steps.get_names.outputs.whl_name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: pip install build --quiet
+
+      - name: Build wheel + sdist
+        run: python -m build
+
+      - name: Get artifact names
+        id: get_names
+        run: |
+          WHL=$(ls dist/*.whl | head -1 | xargs basename)
+          echo "whl_name=$WHL" >> $GITHUB_OUTPUT
+
+      - name: Upload wheel + sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # 2. .deb package (Linux Debian/Ubuntu)
+  # ─────────────────────────────────────────────
+  build-deb:
+    name: 📦 Build .deb
+    runs-on: ubuntu-latest
+    needs: build-python
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y python3-pip fakeroot dpkg-dev
+          pip install . --quiet
+
+      - name: Build .deb structure
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          PKG="cmdclip_${VERSION}_all"
+          mkdir -p "${PKG}/DEBIAN"
+          mkdir -p "${PKG}/usr/local/bin"
+          mkdir -p "${PKG}/usr/share/doc/cmdclip"
+
+          # Control file
+          cat > "${PKG}/DEBIAN/control" <<EOF
+          Package: cmdclip
+          Version: ${VERSION}
+          Section: utils
+          Priority: optional
+          Architecture: all
+          Depends: python3 (>= 3.10), python3-pip
+          Maintainer: M5 Dev <m5dev@proton.me>
+          Description: Smart cross-platform command clipboard manager
+           Save, search, tag, and run terminal commands with AI-powered tagging.
+          EOF
+
+          # Post-install script
+          cat > "${PKG}/DEBIAN/postinst" <<'EOF'
+          #!/bin/sh
+          pip3 install cmdclip --quiet || true
+          EOF
+          chmod 755 "${PKG}/DEBIAN/postinst"
+
+          # Wrapper script
+          cat > "${PKG}/usr/local/bin/cmdclip" <<'EOF'
+          #!/bin/sh
+          exec python3 -m cmdclip.cli "$@"
+          EOF
+          chmod 755 "${PKG}/usr/local/bin/cmdclip"
+
+          # Docs
+          cp README.md "${PKG}/usr/share/doc/cmdclip/"
+
+          fakeroot dpkg-deb --build "${PKG}"
+          mkdir -p artifacts
+          mv "${PKG}.deb" "artifacts/cmdclip_${VERSION}_all.deb"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: artifacts/*.deb
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # 3. .rpm package (Linux Fedora/RHEL)
+  # ─────────────────────────────────────────────
+  build-rpm:
+    name: 📦 Build .rpm
+    runs-on: ubuntu-latest
+    needs: build-python
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install RPM tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y rpm
+
+      - name: Download wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+
+      - name: Build .rpm structure
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+
+          WHL=$(ls dist/*.whl | head -1)
+          cp "$WHL" ~/rpmbuild/SOURCES/
+
+          cat > ~/rpmbuild/SPECS/cmdclip.spec <<EOF
+          Name:           cmdclip
+          Version:        ${VERSION}
+          Release:        1%{?dist}
+          Summary:        Smart cross-platform command clipboard manager
+          License:        GPLv3
+          URL:            https://github.com/M5-Dev/cmdclip
+          Source0:        $(basename $WHL)
+          BuildArch:      noarch
+          Requires:       python3 >= 3.10
+
+          %description
+          Save, search, tag, and run terminal commands with AI-powered tagging.
+          Works on Linux, macOS, and Windows.
+
+          %install
+          mkdir -p %{buildroot}/usr/local/bin
+          cat > %{buildroot}/usr/local/bin/cmdclip <<'WRAPPER'
+          #!/bin/sh
+          exec python3 -m cmdclip.cli "\$@"
+          WRAPPER
+          chmod 755 %{buildroot}/usr/local/bin/cmdclip
+
+          %files
+          /usr/local/bin/cmdclip
+
+          %post
+          pip3 install cmdclip --quiet || true
+
+          %changelog
+          * $(date "+%a %b %d %Y") M5 Dev <m5dev@proton.me> - ${VERSION}-1
+          - Initial RPM release
+          EOF
+
+          rpmbuild -bb ~/rpmbuild/SPECS/cmdclip.spec
+          mkdir -p artifacts
+          find ~/rpmbuild/RPMS -name "*.rpm" -exec cp {} artifacts/ \;
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm-package
+          path: artifacts/*.rpm
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # 4. .zip (Windows portable — no installer yet)
+  # ─────────────────────────────────────────────
+  build-zip-windows:
+    name: 🪟 Build Windows .zip (portable)
+    runs-on: windows-latest
+    needs: build-python
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PyInstaller + package
+        run: |
+          pip install pyinstaller . --quiet
+
+      - name: Build standalone exe with PyInstaller
+        run: |
+          pyinstaller `
+            --onefile `
+            --name cmdclip `
+            --console `
+            --clean `
+            cmdclip/cli.py
+
+      - name: Package into zip
+        run: |
+          $VERSION = "${{ github.event.inputs.version }}"
+          New-Item -ItemType Directory -Force -Path artifacts
+          Copy-Item README.md dist/
+          Compress-Archive `
+            -Path dist/cmdclip.exe, dist/README.md `
+            -DestinationPath "artifacts/cmdclip_${VERSION}_windows_portable.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: artifacts/*.zip
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # 5. Windows NSIS installer (.exe)
+  # ─────────────────────────────────────────────
+  build-installer-windows:
+    name: 🪟 Build Windows installer (.exe)
+    runs-on: windows-latest
+    needs: build-python
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install tools
+        run: pip install pyinstaller . --quiet
+
+      - name: Build .exe with PyInstaller
+        run: |
+          pyinstaller `
+            --onefile `
+            --name cmdclip `
+            --console `
+            --clean `
+            cmdclip/cli.py
+
+      - name: Install NSIS
+        run: choco install nsis --no-progress -y
+
+      - name: Write NSIS script
+        run: |
+          $VERSION = "${{ github.event.inputs.version }}"
+          @"
+          !define APP_NAME "cmdclip"
+          !define APP_VERSION "$VERSION"
+          !define APP_PUBLISHER "M5 Dev"
+          !define APP_URL "https://github.com/M5-Dev/cmdclip"
+          !define EXE_NAME "cmdclip.exe"
+          !define INSTALL_DIR "$PROGRAMFILES64\cmdclip"
+
+          Name "`${APP_NAME} `${APP_VERSION}"
+          OutFile "cmdclip_`${APP_VERSION}_windows_installer.exe"
+          InstallDir "`${INSTALL_DIR}"
+          RequestExecutionLevel admin
+          SetCompressor lzma
+
+          Section "Install"
+            SetOutPath "`$INSTDIR"
+            File "dist\cmdclip.exe"
+            File "README.md"
+
+            ; Add to PATH
+            EnVar::SetHKLM
+            EnVar::AddValue "PATH" "`$INSTDIR"
+
+            ; Uninstaller
+            WriteUninstaller "`$INSTDIR\Uninstall.exe"
+
+            ; Registry entry
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\cmdclip" \
+              "DisplayName" "cmdclip"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\cmdclip" \
+              "UninstallString" "`$INSTDIR\Uninstall.exe"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\cmdclip" \
+              "DisplayVersion" "`${APP_VERSION}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\cmdclip" \
+              "Publisher" "`${APP_PUBLISHER}"
+          SectionEnd
+
+          Section "Uninstall"
+            Delete "`$INSTDIR\cmdclip.exe"
+            Delete "`$INSTDIR\README.md"
+            Delete "`$INSTDIR\Uninstall.exe"
+            RMDir "`$INSTDIR"
+            EnVar::SetHKLM
+            EnVar::DeleteValue "PATH" "`$INSTDIR"
+            DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\cmdclip"
+          SectionEnd
+          "@ | Out-File -Encoding ASCII installer.nsi
+
+      - name: Compile NSIS installer
+        run: |
+          & "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi
+          New-Item -ItemType Directory -Force -Path artifacts
+          $VERSION = "${{ github.event.inputs.version }}"
+          Move-Item "cmdclip_${VERSION}_windows_installer.exe" artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: artifacts/*.exe
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # 6. macOS .dmg
+  # ─────────────────────────────────────────────
+  build-dmg:
+    name: 🍎 Build macOS .dmg
+    runs-on: macos-latest
+    needs: build-python
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install tools
+        run: |
+          pip install pyinstaller . --quiet
+          brew install create-dmg --quiet
+
+      - name: Build .app with PyInstaller
+        run: |
+          pyinstaller \
+            --onefile \
+            --name cmdclip \
+            --console \
+            --clean \
+            cmdclip/cli.py
+
+      - name: Create .dmg
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          mkdir -p dmg_contents
+          cp dist/cmdclip dmg_contents/
+          cp README.md dmg_contents/
+          mkdir -p artifacts
+
+          create-dmg \
+            --volname "cmdclip ${VERSION}" \
+            --window-size 500 300 \
+            --icon-size 100 \
+            --no-internet-enable \
+            "artifacts/cmdclip_${VERSION}_macos.dmg" \
+            "dmg_contents/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: artifacts/*.dmg
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # 7. Collect all artifacts into one release zip
+  # ─────────────────────────────────────────────
+  collect:
+    name: 📦 Collect all artifacts
+    runs-on: ubuntu-latest
+    needs:
+      - build-python
+      - build-deb
+      - build-rpm
+      - build-zip-windows
+      - build-installer-windows
+      - build-dmg
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts/
+          merge-multiple: false
+
+      - name: List collected files
+        run: find all-artifacts/ -type f | sort
+
+      - name: Bundle everything into one zip
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          cd all-artifacts
+          zip -r "../cmdclip_${VERSION}_all_platforms.zip" .
+          cd ..
+          mkdir -p final
+          mv "cmdclip_${VERSION}_all_platforms.zip" final/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: all-platforms-bundle
+          path: final/
+          retention-days: 30
