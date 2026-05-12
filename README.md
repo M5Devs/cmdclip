@@ -1,7 +1,7 @@
 # cmdclip 📋
 
 > A smart, cross-platform command clipboard manager for the terminal.
-> Built by [M5 Dev](https://github.com/M5-Dev) — GPL-3.0
+> Built by [M5 Dev](https://github.com/M5Develop) — GPL-3.0
 
 ---
 
