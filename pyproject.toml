@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cmdclip"
-version = "1.0.0"
+version = "1.0.1"
 description = "Smart cross-platform command clipboard manager — save, tag, search & run shell commands with AI-powered auto-tagging"
 readme = "README.md"
 license = { text = "GPL-3.0" }
