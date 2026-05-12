@@ -8,9 +8,9 @@ on:
         required: true
         default: "1.0.0"
       targets:
-        description: "Targets to build (comma-separated: whl,deb,rpm,zip,installer)"
+        description: "Targets to build (comma-separated: whl,deb,rpm,zip)"
         required: false
-        default: "whl,deb,rpm,zip,installer"
+        default: "whl,deb,rpm,zip"
 
 jobs:
   # ─────────────────────────────────────────────
@@ -235,147 +235,6 @@ jobs:
           retention-days: 7
 
   # ─────────────────────────────────────────────
-  # 5. Windows NSIS installer (.exe)
-  # ─────────────────────────────────────────────
-  build-installer-windows:
-    name: 🪟 Build Windows installer (.exe)
-    runs-on: windows-latest
-    needs: build-python
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install tools
-        run: pip install pyinstaller . --quiet
-
-      - name: Build .exe with PyInstaller
-        run: |
-          pyinstaller `
-            --onefile `
-            --name cmdclip `
-            --console `
-            --clean `
-            cmdclip/cli.py
-
-      - name: Install NSIS
-        run: choco install nsis --no-progress -y
-
-      - name: Write NSIS script
-        run: |
-          $VERSION = "${{ github.event.inputs.version }}"
-          $OutFile = "cmdclip_${VERSION}_windows_installer.exe"
-          @"
-          !define APP_NAME "cmdclip"
-          !define APP_VERSION "$VERSION"
-          !define APP_PUBLISHER "M5 Dev"
-          !define APP_URL "https://github.com/M5-Dev/cmdclip"
-          !define OUTFILE "$OutFile"
-          !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\cmdclip"
-          !define PATH_REG "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
-
-          Name "`${APP_NAME} `${APP_VERSION}"
-          OutFile "`${OUTFILE}"
-          InstallDir "$PROGRAMFILES64\cmdclip"
-          RequestExecutionLevel admin
-          SetCompressor lzma
-
-          ; ── PATH helper using pure registry (no plugins needed) ───────────
-          !macro AddToSystemPath INSTPATH
-            ReadRegExpandStr $0 HKLM "`${PATH_REG}" "Path"
-            StrCpy $1 "`${INSTPATH}"
-            StrCpy $2 "$0"
-            ; Append only if not already there
-            Push "$0"
-            Push "$1"
-            Call StrStr
-            Pop $3
-            StrCmp $3 "" 0 already_present
-              WriteRegExpandStr HKLM "`${PATH_REG}" "Path" "$0;$1"
-              SendMessage `${HWND_BROADCAST}` `${WM_WININICHANGE}` 0 "STR:Environment" /TIMEOUT=500
-            already_present:
-          !macroend
-
-          Function StrStr
-            Exch $R1
-            Exch
-            Exch $R0
-            Push $R2 & Push $R3 & Push $R4 & Push $R5
-            StrLen $R3 $R1
-            StrCpy $R4 0
-            loop:
-              StrCpy $R2 $R0 $R3 $R4
-              StrCmp $R2 $R1 found
-              StrCmp $R2 "" done
-              IntOp $R4 $R4 + 1
-              Goto loop
-            found:
-              StrCpy $R2 $R0 "" $R4
-              Goto exit
-            done:
-              StrCpy $R2 ""
-            exit:
-            Pop $R5 & Pop $R4 & Pop $R3
-            Exch $R2
-            Exch 2
-            Pop $R0 & Pop $R1
-          FunctionEnd
-
-          ; ── Install ───────────────────────────────────────────────────────
-          Section "Install"
-            SetOutPath "`$INSTDIR"
-            File "dist\cmdclip.exe"
-            File "README.md"
-
-            !insertmacro AddToSystemPath "`$INSTDIR"
-
-            WriteUninstaller "`$INSTDIR\Uninstall.exe"
-            WriteRegStr HKLM "`${UNINST_KEY}" "DisplayName"    "cmdclip"
-            WriteRegStr HKLM "`${UNINST_KEY}" "UninstallString" "`$INSTDIR\Uninstall.exe"
-            WriteRegStr HKLM "`${UNINST_KEY}" "DisplayVersion"  "`${APP_VERSION}"
-            WriteRegStr HKLM "`${UNINST_KEY}" "Publisher"       "`${APP_PUBLISHER}"
-            WriteRegStr HKLM "`${UNINST_KEY}" "URLInfoAbout"    "`${APP_URL}"
-            WriteRegDWORD HKLM "`${UNINST_KEY}" "NoModify" 1
-            WriteRegDWORD HKLM "`${UNINST_KEY}" "NoRepair" 1
-          SectionEnd
-
-          ; ── Uninstall ─────────────────────────────────────────────────────
-          Section "Uninstall"
-            Delete "`$INSTDIR\cmdclip.exe"
-            Delete "`$INSTDIR\README.md"
-            Delete "`$INSTDIR\Uninstall.exe"
-            RMDir  "`$INSTDIR"
-            DeleteRegKey HKLM "`${UNINST_KEY}"
-          SectionEnd
-          "@ | Out-File -Encoding ASCII -FilePath installer.nsi
-
-      - name: Compile NSIS installer
-        run: |
-          & "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Move installer to artifacts
-        run: |
-          New-Item -ItemType Directory -Force -Path artifacts
-          $VERSION = "${{ github.event.inputs.version }}"
-          $Name = "cmdclip_${VERSION}_windows_installer.exe"
-          if (-Not (Test-Path $Name)) {
-            Write-Error "Installer not found: $Name"
-            Get-ChildItem -Filter "*.exe" | Select-Object Name
-            exit 1
-          }
-          Move-Item $Name artifacts/
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-installer
-          path: artifacts/*.exe
-          retention-days: 7
-
-  # ─────────────────────────────────────────────
   # 6. macOS .dmg
   # ─────────────────────────────────────────────
   build-dmg:
@@ -437,7 +296,6 @@ jobs:
       - build-deb
       - build-rpm
       - build-zip-windows
-      - build-installer-windows
       - build-dmg
 
     steps:
