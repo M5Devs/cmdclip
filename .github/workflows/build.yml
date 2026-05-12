@@ -153,7 +153,7 @@ jobs:
           Release:        1%{?dist}
           Summary:        Smart cross-platform command clipboard manager
           License:        GPLv3
-          URL:            https://github.com/M5-Dev/cmdclip
+          URL:            https://github.com/M5Develop/cmdclip
           Source0:        $(basename $WHL)
           BuildArch:      noarch
           Requires:       python3 >= 3.10
@@ -347,6 +347,6 @@ jobs:
             ```
 
             ### 🔗 Links
-            - [GitHub](https://github.com/M5-Dev/cmdclip)
-            - [M5 Dev](https://github.com/M5-Dev)
+            - [GitHub](https://github.com/M5Develop/cmdclip)
+            - [M5 Dev](https://github.com/M5Develop)
           files: release-files/*
