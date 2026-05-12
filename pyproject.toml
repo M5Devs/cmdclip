@@ -5,23 +5,37 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cmdclip"
 version = "1.0.0"
-description = "A smart cross-platform command clipboard manager for the terminal"
+description = "Smart cross-platform command clipboard manager — save, tag, search & run shell commands with AI-powered auto-tagging"
 readme = "README.md"
 license = { text = "GPL-3.0" }
 authors = [{ name = "M5 Dev", email = "m5dev@proton.me" }]
-keywords = ["cli", "terminal", "commands", "clipboard", "snippets", "productivity"]
+keywords = [
+    "cli", "terminal", "shell", "command-manager", "clipboard",
+    "snippets", "productivity", "ai", "groq", "cross-platform",
+    "linux", "macos", "windows", "history", "search", "tags",
+    "devtools", "sysadmin", "automation", "dotfiles"
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
+    "Intended Audience :: Information Technology",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Natural Language :: English",
     "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Utilities",
+    "Topic :: System :: Shells",
+    "Topic :: System :: System Shells",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Terminals",
 ]
 requires-python = ">=3.10"
 dependencies = [
@@ -38,9 +52,9 @@ dev = ["pytest>=8", "pytest-cov"]
 cmdclip = "cmdclip.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/M5-Dev/cmdclip"
-Repository = "https://github.com/M5-Dev/cmdclip"
-Issues = "https://github.com/M5-Dev/cmdclip/issues"
+Homepage = "https://github.com/M5Develop/cmdclip"
+Repository = "https://github.com/M5Develop/cmdclip"
+Issues = "https://github.com/M5Develop/cmdclip/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
