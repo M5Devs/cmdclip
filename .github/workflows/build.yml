@@ -369,7 +369,7 @@ jobs:
           }
           Move-Item $Name artifacts/
 
-            - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: windows-installer
           path: artifacts/*.exe
