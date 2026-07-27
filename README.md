@@ -1,108 +1,93 @@
 # cmdclip 📋
 
-> A smart, cross-platform command clipboard manager for the terminal.
-> Built by [M5 Dev](https://github.com/M5Develop) — GPL-3.0
+> A lightweight, offline-first, cross-platform clipboard manager with LAN Sync and secure secret tracking.
+> Built with Flutter and Material 3 — GPL-3.0 License.
+
+**cmdclip** is a modern, high-performance clipboard manager designed to run natively on **Windows**, **Linux**, and **Android** from a single codebase. It is 100% offline, requires no cloud accounts, no internet, and has absolutely zero telemetry.
 
 ---
 
-## Why cmdclip?
+## 🚀 Key Features
 
-`history` is short. `grep` is tedious. `pet` is Go-only.  
-**cmdclip** is Python, works on Linux / macOS / Windows, and has AI built in.
+1. **Clipboard History** — Polling-based background tracking captures everything you copy with accurate timestamps.
+2. **Pinning & Categories** — Organizes clips instantly. Pin important snippets to keep them at the top, or assign entries to custom user-defined categories (e.g., *Work*, *Terminal*, *Code*, *Personal*).
+3. **Secure Secret Mode** — One-tap toggle disables history recording. Copies during Secret Mode trigger a secure countdown timer that automatically overwrites/clears your system clipboard after a user-defined timeout (e.g., 30s, 60s).
+4. **Command Templates** — Supports placeholders like `ssh {user}@{host} -p {port=22}`. Prompts with a sleek, interactive input form to resolve variables, pre-filling defaults before copying the finalized command.
+5. **Regex Search** — Seamless regular expression search across your history with an easy toggle button.
+6. **Local LAN Sync** — Real-time clipboard sharing between desktops and Android over your local Wi-Fi network. Acts as both an HTTP server and a UDP client to perform auto-discovery and direct paired synchronization. No internet, cloud, or accounts required!
+7. **JSON & CSV Export/Import** — Easily back up, share, or migration-import history. Hand-written custom CSV state machine parser handles multi-line cells and quotes cleanly.
 
 ---
 
-## Install
+## 📂 Project Structure
 
-```bash
-pip install cmdclip
+```
+.
+├── android/            # Android Native Platform Configuration
+├── linux/              # Linux Native Platform Configuration
+├── windows/            # Windows Native Platform Configuration
+├── lib/
+│   ├── main.dart       # Responsive Material 3 UI Layout & View Controllers
+│   ├── models.dart     # ClipboardItem, CommandTemplate, SyncPeer Definitions
+│   ├── storage.dart    # Persistent cached JSON local storage & CSV/JSON Export/Import Engine
+│   ├── sync_service.dart # Background Poller, HTTP Sync Server, UDP LAN Auto-Discovery
+│   └── secret_manager.dart # Secret mode clipboard timer & template resolution engine
+├── test/
+│   ├── app_test.dart   # Exhaustive Model, Storage, CSV/JSON, Secret, and Template unit tests
+│   └── widget_test.dart # App Widget rendering and smoke tests
+├── pubspec.yaml        # Flutter project dependency configuration
+└── README.md           # Documentation & build guide
 ```
 
 ---
 
-## Quick start
+## 🛠 Build Instructions
 
+### Prerequisites
+1. Install [Flutter SDK](https://docs.flutter.dev/get-started/install). Ensure `flutter doctor` passes successfully.
+2. For desktop builds, ensure you have the appropriate native compiler toolchain installed.
+
+### 🐧 1. Linux Desktop
+Install build dependencies (on Ubuntu/Debian):
 ```bash
-# Save a command
-cmdclip add "docker ps -a --format '{{.Names}}'" --tags docker,ops --note "list container names"
+sudo apt-get update
+sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev lld
+```
+Build the release bundle:
+```bash
+flutter build linux --release
+```
+The compiled binary can be found under:
+`build/linux/x64/release/bundle/cmdclip`
 
-# List all
-cmdclip list
+### 🪟 2. Windows Desktop
+Ensure you have "Desktop development with C++" installed via Visual Studio Installer.
+Build the release bundle:
+```bash
+flutter build windows --release
+```
+The executable can be found under:
+`build\windows\x64\release\runner\cmdclip.exe`
 
-# Search
-cmdclip search docker
+### 🤖 3. Android Mobile
+Ensure Android SDK & command-line tools are installed.
+Build the release APK:
+```bash
+flutter build apk --release
+```
+The generated APK can be found under:
+`build/app/outputs/flutter-apk/app-release.apk`
 
-# Run by ID
-cmdclip run a3f9
+---
 
-# Dry-run with AI explanation
-cmdclip run a3f9 --dry-run
+## 🧪 Running Tests
 
-# AI explain any saved command
-cmdclip explain a3f9
-
-# Import from shell history (smart — picks commands used 5+ times)
-cmdclip history
-
-# Export / import
-cmdclip export --output backup.json
-cmdclip import backup.json --safe
-
-# Share as a snippet (copies to clipboard)
-cmdclip share a3f9
-
-# Usage stats
-cmdclip stats
+A comprehensive unit, integration, and widget test suite is included. To execute all tests, run:
+```bash
+flutter test
 ```
 
 ---
 
-## AI features (Groq)
-
-```bash
-# Save your Groq API key once
-cmdclip config set-key gsk_xxxxxxxxxxxx
-
-# Now add / explain / dry-run all use AI automatically
-```
-
-Get a free key at [console.groq.com](https://console.groq.com).
-
----
-
-## Command templates
-
-Use `{variable}` or `{variable=default}` syntax:
-
-```bash
-cmdclip add "ssh {user}@{host} -p {port=22}" --name ssh-connect
-cmdclip run <id>
-# Fill in: user? host? port [22]?
-```
-
----
-
-## Safe mode
-
-Import with `--safe` to automatically quarantine dangerous commands  
-(`rm -rf`, `sudo rm`, `DROP TABLE`, etc.) into a separate file.
-
-```bash
-cmdclip import backup.json --safe
-```
-
----
-
-## Cross-platform paths
-
-| OS | Data directory |
-|----|---------------|
-| Linux / macOS | `~/.cmdclip/` |
-| Windows | `%LOCALAPPDATA%\cmdclip\` |
-
----
-
-## License
-
-GNU General Public License v3.0 — see [LICENSE](LICENSE)  
-© M5 Dev
+## GPL-3.0 License
+© cmdclip developers. Licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) for details.
