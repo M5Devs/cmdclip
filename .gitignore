@@ -1,0 +1,63 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.project
+.idea/
+*.iml
+__pycache__/
+
+# Tooling
+.direnv/
+.env
+.env.*
+.glassfish/
+.gradle/
+.jekyll-cache/
+.pub-cache/
+.pub/
+.sandbox/
+.vscode/
+
+# Flutter/Dart-specific
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+ephemeral/
+
+# Android-specific
+android/app/local.properties
+android/app/flutter_bootstrap.properties
+android/key.properties
+android/app/src/main/assets/
+
+# iOS-specific
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/derived_data/
+ios/Pods/
+
+# macOS-specific
+macos/Flutter/Generated.xcconfig
+macos/Flutter/flutter_export_environment.sh
+macos/Flutter/ephemeral/
+macos/Pods/
+
+# Windows-specific
+windows/flutter/ephemeral/
+
+# Linux-specific
+linux/flutter/ephemeral/
+
+# Web-specific
+web/flutter_service_worker.js
