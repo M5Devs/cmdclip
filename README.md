@@ -90,4 +90,4 @@ flutter test
 ---
 
 ## GPL-3.0 License
-© cmdclip developers. Licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) for details.
+© M5 Dev. Licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) for details.
